@@ -1,6 +1,6 @@
-from datasource import original
+from data import source
 
-data_folder = original.OriginalDataFolder("../data/original")
+data_folder = source.OriginalDataFolder("../data/original")
 data_files = []
 data_files.extend([data_file for data_file in data_folder.data_files if data_file.user_id=="de46f888-a646-40e9-b817-c0f9aff7a362"])
 #data_files.extend([data_file for data_file in data_folder.data_files if data_file.user_id=="ad45363b-7632-432e-a368-215d3fb0ca10"])

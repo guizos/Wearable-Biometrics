@@ -1,11 +1,11 @@
 from __future__ import division
-import os
+
 import logging
-from os import listdir
-from os.path import isfile, join
+import os
+
 import numpy
-import matplotlib.pyplot as plt
-from preprocessing import interpolation
+
+from data.preprocessing import interpolation
 from utils.sampling import reservoir_sampling
 
 
@@ -36,7 +36,7 @@ class OneClassExperimenter:
         if self.output_folder :
             output_file = self.output_folder+"/"+"final_"+self.classifier.get_parameters_string()+"_"\
                           + str(activity_training) + "_" + str(num_training_samples)
-            self.write_results_to_file(result_tables=final_average,output_file=output_file,user_id=user_id,
+            self.write_results_to_file(result_table=final_average, output_file=output_file, user_id="SUMMARY",
                                        activity_training=activity_training, num_training_samples=num_training_samples)
         return final_average
 
@@ -53,11 +53,11 @@ class OneClassExperimenter:
         if self.output_folder:
             output_file = self.output_folder+"/"+self.classifier.get_parameters_string()+"_"+user_id+"_"\
                           + str(activity_training) + "_" + str(num_training_samples)
-            self.write_results_to_file(result_tables=average_result_tables,output_file=output_file,user_id=user_id,
+            self.write_results_to_file(result_table=average_result_tables, output_file=output_file, user_id=user_id,
                                        activity_training=activity_training, num_training_samples=num_training_samples)
         return average_result_tables
 
-    def write_results_to_file(self,result_tables,output_file,user_id,activity_training,num_training_samples):
+    def write_results_to_file(self, result_table, output_file, user_id, activity_training, num_training_samples):
         with open(output_file,'w') as f:
             f.write("**** SUMMARY ****\n")
             f.write("User ID: "+str(user_id)+"\n")
@@ -72,20 +72,20 @@ class OneClassExperimenter:
             tpr_line = "TPR :"
             fpr_line = "FPR :"
             i = 0
-            for result_table in result_tables:
-                if sum(result_table) != 0 and result_table[0]+result_table[2]!=0 and result_table[1]+result_table[3]!=0:
-                    tp_line += " ("+str(i)+") "+str(result_table[0])+"\t"
-                    tn_line += " ("+str(i)+") "+str(result_table[1])+"\t"
-                    fp_line += " ("+str(i)+") "+str(result_table[2])+"\t"
-                    fn_line += " ("+str(i)+") "+str(result_table[3])+"\t"
-                    tpr_line += " ("+str(i)+") "+str(result_table[0]/(result_table[0]+result_table[2]))+"\t"
-                    fpr_line += " ("+str(i)+") "+str(result_table[3]/(result_table[3]+result_table[1]))+"\t"
-                    h_line += " ("+str(i)+") "+str((result_table[1]+result_table[0])/(sum(result_table)))+"\t"
+            for result in result_table:
+                if sum(result) != 0 and result[0]+result[2]!=0 and result[1]+result[3]!=0:
+                    tp_line += " ("+str(i)+") "+str(result[0]) + "\t"
+                    tn_line += " ("+str(i)+") "+str(result[1]) + "\t"
+                    fp_line += " ("+str(i)+") "+str(result[2]) + "\t"
+                    fn_line += " ("+str(i)+") "+str(result[3]) + "\t"
+                    tpr_line += " ("+str(i)+") "+str(result[0] / (result[0] + result[2])) + "\t"
+                    fpr_line += " ("+str(i)+") "+str(result[3] / (result[3] + result[1])) + "\t"
+                    h_line += " ("+str(i)+") "+str((result[1] + result[0]) / (sum(result))) + "\t"
                 else:
-                    tp_line += " ("+str(i)+") "+str(result_table[0])+"\t"
-                    tn_line += " ("+str(i)+") "+str(result_table[1])+"\t"
-                    fp_line += " ("+str(i)+") "+str(result_table[2])+"\t"
-                    fn_line += " ("+str(i)+") "+str(result_table[3])+"\t"
+                    tp_line += " ("+str(i)+") "+str(result[0]) + "\t"
+                    tn_line += " ("+str(i)+") "+str(result[1]) + "\t"
+                    fp_line += " ("+str(i)+") "+str(result[2]) + "\t"
+                    fn_line += " ("+str(i)+") "+str(result[3]) + "\t"
                 i +=1
             f.write(tp_line+"\n")
             f.write(fn_line+"\n")
@@ -128,7 +128,7 @@ class OneClassExperimenter:
 
 class OneClassROCAreaExperimenter(OneClassExperimenter):
 
-    def write_results_to_file(self,result_tables,output_file,user_id,activity_training,num_training_samples):
+    def write_results_to_file(self,result_table,output_file,user_id,activity_training,num_training_samples):
         with open(output_file,'w') as f:
             f.write("**** SUMMARY ****\n")
             f.write("User ID: "+str(user_id)+"\n")
@@ -137,9 +137,9 @@ class OneClassROCAreaExperimenter(OneClassExperimenter):
             f.write(self.classifier.get_details())
             roc_line = "ROC Area :"
             i = 0
-            for result_table in result_tables:
-                roc_line += " ("+str(i)+") "+str(result_table[0])+"\t"
-                i += 1
+            for result in result_table:
+                roc_line += " ("+str(i)+") "+str(result)+"\t"
+                i +=1
             f.write(roc_line+"\n")
 
     def print_experiment_summary(self,activity_training, number_samples_training, result_table):
@@ -193,7 +193,8 @@ class OneClassDistanceExperimentEnrollmentOneActivity():
         print "training"
         for sample in self.samples_enrollment:
             for second_sample in self.samples_enrollment:
-                distances.append(self.distance(interpolation.linear(sample.data,self.size_samples),interpolation.linear(second_sample.data,self.size_samples)))
+                distances.append(self.distance(interpolation.linear(sample.data, self.size_samples),
+                                               interpolation.linear(second_sample.data, self.size_samples)))
         return (numpy.mean(distances),numpy.std(distances))
 
     def test(self,threshold):
@@ -208,10 +209,12 @@ class OneClassDistanceExperimentEnrollmentOneActivity():
         print "testing"
         print "measuring same user distances"
         for same_user_sample in self.samples_user_test:
-            same_user_distances.append([self.distance(interpolation.linear(same_user_sample.data,self.size_samples),interpolation.linear(enrollment_sample.data,self.size_samples)) for enrollment_sample in self.samples_enrollment])
+            same_user_distances.append([self.distance(interpolation.linear(same_user_sample.data, self.size_samples),
+                                                      interpolation.linear(enrollment_sample.data, self.size_samples)) for enrollment_sample in self.samples_enrollment])
         print "measuring other user distances"
         for other_user_sample in self.samples_others_test:
-            other_user_distances.append([self.distance(interpolation.linear(other_user_sample.data,self.size_samples),interpolation.linear(enrollment_sample.data,self.size_samples)) for enrollment_sample in self.samples_enrollment])
+            other_user_distances.append([self.distance(interpolation.linear(other_user_sample.data, self.size_samples),
+                                                       interpolation.linear(enrollment_sample.data, self.size_samples)) for enrollment_sample in self.samples_enrollment])
         print "Measuring classification values"
         tp = len([1 for distance_array in same_user_distances if numpy.mean(distance_array)<threshold])
         fn = len(same_user_distances)-tp
