@@ -1,3 +1,5 @@
+import logging
+
 from sklearn import metrics
 from sklearn.svm import OneClassSVM
 
@@ -30,6 +32,7 @@ class SVMClassifier:
     def train(self,labeled_samples):
         self.user_id = labeled_samples[0].user_id
         self.svm.fit([labeled_sample.data for labeled_sample in labeled_samples])
+        logging.info("Training finished")
 
     def test(self,labeled_samples,activity_info=None):
         # each row is a labeled_sample
@@ -49,6 +52,7 @@ class SVMClassifier:
                 fp_a = len([1 for index in range(len(predictions)) if labels[index]==-1 and predictions[index]==1 and labeled_samples[index].activity==i+1])
                 fn_a = len([1 for index in range(len(predictions)) if labels[index]==1 and predictions[index]==-1 and labeled_samples[index].activity==i+1])
                 result.append([tp_a, tn_a, fp_a, fn_a])
+        logging.info("Test finished")
         return result
 
 class SVMROCClassifier(SVMClassifier):
@@ -70,4 +74,5 @@ class SVMROCClassifier(SVMClassifier):
                     result.append(activity_roc_score)
                 elif len(set(labels_activity))>1:
                     result.append(0.5)
+        logging.info("Test finished")
         return result

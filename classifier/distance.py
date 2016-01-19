@@ -1,4 +1,6 @@
 import itertools
+import logging
+
 import numpy
 from scipy.spatial.distance import pdist
 from sklearn import metrics
@@ -22,7 +24,7 @@ class AverageDistanceClassifier:
         self.train_samples = 0
 
     def get_parameters_string(self):
-        return self.distance_function+"_"+self.type
+        return self.distance_function+"_"+self.kind
 
     def print_details(self):
         print self.get_details()
@@ -62,6 +64,7 @@ class AverageDistanceClassifier:
         self.mean = numpy.mean(distances)
         self.std = numpy.std(distances)
         self.train_samples = labeled_samples
+        logging.info("Training finished")
         return self.mean,self.std
 
     def get_mean_distance(self, sample):
@@ -100,6 +103,7 @@ class AverageDistanceClassifier:
                     result.append(activity_roc_score)
                 elif len(set(labels_activity))>1:
                     result.append(0.5)
+        logging.info("Test finished")
         return result
 
 
