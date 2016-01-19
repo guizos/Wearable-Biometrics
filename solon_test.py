@@ -1,11 +1,13 @@
-from feature import beats
-from datasource import original
-from classifier import distance
-import pickle
 import time
+
+from classifier import distance
+from data import source
+from data.segmentation import ecg
+
 start_time = time.time()
-with open('ecg_database_smothed_before_splitting.pkl','rb') as input:
-    ecg_database = pickle.load(input)
+data_folder = source.OriginalDataFolder("original_data")
+#extract interpolated beat samples
+ecg_database = ecg.ECGBeatLabeledSamplesDatabase(data_folder, 80, True)
 # your code
 elapsed_time = time.time() - start_time
 print "Database Created in " + str(elapsed_time)

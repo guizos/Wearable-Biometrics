@@ -1,14 +1,50 @@
+from peakutils import indexes
+from scipy.signal import butter, lfilter
+
 __author__ = 'sixtenbe'
 import numpy as np
 from math import pi, log
-import pylab
+import matplotlib.pyplot as plt
 from scipy import fft, ifft
 from scipy.optimize import curve_fit
 
-i = 10000
-x = np.linspace(0, 3.5 * pi, i)
-y = (0.3*np.sin(x) + np.sin(1.3 * x) + 0.9 * np.sin(4.2 * x) + 0.06 *
-    np.random.randn(i))
+
+def plot_ppg_data_with_peaks(d,ecg_signal):
+    der = np.gradient(np.gradient(d))
+    d_2 = np.array(d)
+    peaks_1 = indexes(d_2,thres=0.1,min_dist=50)
+    #if len(valleys_x)>2:
+    plt.plot(d)
+    plt.plot(ecg_signal)
+    sub_peaks = peaks_1
+    plt.plot([peak for peak in sub_peaks],[d[peak] for peak in sub_peaks],'go')
+    i_der = np.gradient(np.gradient([value*-2.0 for value in ecg_signal]))
+    peaks_ecg = indexes(i_der,thres=0.05,min_dist=50)
+    plt.plot([peak for peak in peaks_ecg],[ecg_signal[peak]+0.5 for peak in peaks_ecg],'ro')
+    plt.figure()
+
+
+def plot_ecg_signal_with_peaks(ecgbeat_labeled_time_signal):
+    d = ecgbeat_labeled_time_signal.data
+    der = np.gradient(np.gradient(d))
+    i_der = np.gradient(np.gradient([value*-2.0 for value in d]))
+    peaks_1 = indexes(i_der,thres=0.05,min_dist=50)
+    valleys = peakdetect(d,lookahead=5,delta=0)
+    valleys_x = [valley[0] for valley in valleys[1]]
+    if len(valleys_x)>2:
+        peak_x = peaks_1[0]
+        begin_x = [valley for valley in valleys_x if valley < peak_x][-1]
+        end_x = [valley for valley in valleys_x if valley > peak_x][0]
+        plt.plot(d)
+        plt.plot([value+0.5 for value in i_der])
+        sub_peaks = peaks_1
+        plt.plot([peak for peak in sub_peaks],[i_der[peak]+0.5 for peak in sub_peaks],'ro')
+        plt.plot(begin_x,d[begin_x],'ko')
+        plt.plot(end_x,d[end_x],'ko')
+        plt.figure()
+
+
+
 
 
 def _datacheck_peakdetect(x_axis, y_axis):
