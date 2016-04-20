@@ -56,8 +56,11 @@ class ECGBeatLabeledSamplesDatabase(LabeledSamplesDatabase):
         self.labeled_samples = []
         for data_file in data_folder.data_files:
             if data_file.activity != 3:
-                out = ecg.ecg(signal=data_file.get_ecg_time_signal().data,sampling_rate=100,show=None)
-                self.labeled_samples.extend([LabeledSample(ecg_template,data_file.user_id,data_file.activity) for ecg_template in out[4]])
+                try:
+                    out = ecg.ecg(signal=data_file.get_ecg_time_signal().data,sampling_rate=100,show=None)
+                    self.labeled_samples.extend([LabeledSample(ecg_template,data_file.user_id,data_file.activity) for ecg_template in out[4]])
+                except Exception:
+                    logging.info("Error with user {0} and activity {1}".format(data_file.user_id,data_file.activity))
         logging.info("ECG Database created with biosppy library")
 
 
