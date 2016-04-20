@@ -1,0 +1,3 @@
+[submodule "BioSPPy"]
+	path = BioSPPy
+	url = https://github.com/PIA-Group/BioSPPy.git
