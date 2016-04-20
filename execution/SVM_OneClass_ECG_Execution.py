@@ -1,14 +1,14 @@
 import logging
-
+import sys
 from classifier import svm
 from data import source
 from data.segmentation import ecg
 from experiments import experiment
 
 #get data folder
-data_folder = source.OriginalDataFolder("original_data")
+data_folder = source.OriginalDataFolder(sys.argv[1])
 #extract interpolated beat samples
-ecg_database = ecg.ECGBeatLabeledSamplesDatabase(data_folder, 80, True)
+ecg_database = ecg.ECGBeatLabeledSamplesDatabase(data_folder)
 #with open('ecg_database_smothed_before_splitting.pkl','rb') as input:
 #    ecg_database = pickle.load(input)
 print "Database read. Beginning experiments"
