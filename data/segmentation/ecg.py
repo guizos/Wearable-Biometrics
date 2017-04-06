@@ -7,118 +7,82 @@ from matplotlib.pylab import plot
 from biosppy.signals import ecg
 from scipy.signal import argrelextrema
 
-from data.dataset import LabeledSamplesDatabase, LabeledSample
+from data.segmentation.general import peak_radius_based_segmenter
 from utils import peakdetect
 
-class OriginalECGBeatLabeledSamplesDatabase(LabeledSamplesDatabase):
-
-    def __init__(self, data_folder, interpolation_size=80, smoothed=True, normalize=True):
-        ecg_labeled_samples = []
-        for data_file in data_folder.data_files:
-            if data_file.activity != 3:
-                normalized_and_smoothed_ecg_sample = LabeledSamplesDatabase.process_sample(data_file.get_ecg_time_signal(),0,smoothed,normalize)
-                new_samples = self.labeled_beat_samples(normalized_and_smoothed_ecg_sample)
-                if len(new_samples)>0:
-                    ecg_labeled_samples.extend(new_samples)
-        #interpolate, smoothing and normalization have been carried out in a previous step to ease peak detection
-        self.labeled_samples = LabeledSamplesDatabase.process_samples(ecg_labeled_samples,interpolation_size,None,None)
-        logging.info("ECG Database created with interpolation size="+str(interpolation_size)+" smoothed="+str(smoothed)+
-                     " and normalize="+str(normalize))
-
-    def labeled_beat_samples(self, ecg_labeled_time_signal):
-        """
+def t40_peaks(ecg_time_signal,frequency=100):
+    """
         Creates a set of labeled data samples composed of ecg beat samples
-        We use the gradient four times to get the main peka (R point). Then
+        We use the biosppy to get the main peaks (R point). Then
         we consider a beat 40 points behind and after that point
         We skip the first 3 and last 0.5 seconds to reduce noise
-        :param ecg_labeled_time_signal:
+        :param ecg_time_signal:
         :return: an array of LabeledSamples without outliers
         """
-        d = ecg_labeled_time_signal.data[300:-50]
-        i_der = numpy.gradient(numpy.gradient([value*-2.0 for value in d]))
-        out = ecg.ecg(signal=d,sampling_rate=100,show=None)
-        peaks = out[2]
-        # If the first peak is R, we remove it, we want to start reading
-        # from the first T.
-        if len(peaks)==0:
-            return []
-        while peaks[0]<40:
-            peaks = peaks[1:]
-        while peaks[-1]> len(d)-40:
-            peaks = peaks[:-2]
-        return [LabeledSample(d[peak-40:peak+40],ecg_labeled_time_signal.user_id,ecg_labeled_time_signal.activity,peak) for
-                peak in peaks]
+    d = ecg_time_signal
+    if len(d) < 90 or np.abs(d).max() == 0:
+        return []
+    out = ecg.ecg(signal=d, sampling_rate=frequency, show=None)
+    peaks = out[2]
+    # If the first peak is R, we remove it, we want to start reading
+    # from the first T.
+    if len(peaks) == 0:
+        return []
+    while peaks[0] < 40:
+        peaks = peaks[1:]
+    while peaks[-1] > len(d) - 40:
+        peaks = peaks[:-2]
+    return peaks
 
+def t40_beat_samples(ecg_time_signal,frequency=100):
+    peaks = t40_peaks(ecg_time_signal=ecg_time_signal,frequency=frequency)
+    return peak_radius_based_segmenter(ecg_time_signal, peaks, radius=40)
 
-class ECGBeatLabeledSamplesDatabase(LabeledSamplesDatabase):
+def beat_samples(ecg_time_signal,frequency=100):
+    out = ecg.ecg(signal=ecg_time_signal, sampling_rate=frequency, show=None)
+    return [ecg_template for ecg_template in out[4]]
 
-    def __init__(self, data_folder):
-        self.labeled_samples = []
-        for data_file in data_folder.data_files:
-            if data_file.activity != 3:
-                try:
-                    out = ecg.ecg(signal=data_file.get_ecg_time_signal().data,sampling_rate=100,show=None)
-                    self.labeled_samples.extend([LabeledSample(ecg_template,data_file.user_id,data_file.activity) for ecg_template in out[4]])
-                except Exception:
-                    logging.info("Error with user {0} and activity {1}".format(data_file.user_id,data_file.activity))
-        logging.info("ECG Database created with biosppy library")
+#TO adapt to general approach based on peaks
+def beat_timewindow_samples(ecg_time_signal, time=5, frequency=100):
+    limit = time * frequency
+    final_peaks = []
+    out = ecg.ecg(signal=ecg_time_signal, sampling_rate=frequency, show=None)
+    peaks = out['rpeaks']
+    for i in range(len(peaks)):
+        if i == 0 or current_peak - peaks[i] >= limit:
+            current_peak = peaks[i]
+            final_peaks.append(current_peak)
+    return [ecg_time_signal[peak - 40:peak + (limit - 40)] for peak in final_peaks]
 
+#TO adapt to general approach based on peaks
+def QRSComplex_beat_samples(ecg_time_signal, frequency=100):
+    labeled_samples = []
+    out = ecg.ecg(signal=ecg_time_signal, sampling_rate=frequency, show=None)
+    peaks = out['rpeaks']
+    valleys = peakdetect.peakdetect(ecg_time_signal.data, lookahead=5, delta=0)
+    valleys_x = [valley[0] for valley in valleys[1]]
+    for peak in peaks:
+        peak_x = peak
+        if valleys_x[0] < peak_x < valleys_x[-1] and len(valleys_x) > 2:
+            begin_x = [valley for valley in valleys_x if valley < peak_x][-1]
+            end_x = [valley for valley in valleys_x if valley > peak_x][0]
+            if end_x - begin_x < 20:
+                sample = ecg_time_signal[begin_x:end_x]
+                labeled_samples.append(sample)
+    return labeled_samples
 
-class ECGBeatTimeLabeledSamplesDatabase(LabeledSamplesDatabase):
+#TO adapt to general approach based on peaks
+def QRSComplesAllZero_beat_samples(ecg_time_signal, frequency=100):
+    presamples = QRSComplex_beat_samples(ecg_time_signal, frequency)
+    samples = []
+    for presample in presamples:
+        origin = presample[0]
+        new_data = [point - origin for point in presample]
+        samples.append(new_data)
+    return samples
 
-    def __init__(self, data_folder, time=5, frequency=100):
-        self.labeled_samples = []
-        self.data_folder = data_folder
-        self.time = time
-        limit = time*frequency
-        final_peaks = []
-        for data_file in data_folder.data_files:
-            if data_file.activity != 3:
-                out = ecg.ecg(signal=data_file.get_ecg_time_signal().data,sampling_rate=frequency,show=None)
-                normalized_and_smoothed_ecg_sample = LabeledSamplesDatabase.process_sample(data_file.get_ecg_time_signal(),0,True,True)
-                peaks = out['rpeaks']
-                for i in range(len(peaks)):
-                    if i == 0 or current_peak-peaks[i] >= limit:
-                        current_peak = peaks[i]
-                        final_peaks.append(current_peak)
-                d = normalized_and_smoothed_ecg_sample.data
-                self.labeled_samples.extend([LabeledSample(d[peak-40:peak+(limit-40)],data_file.user_id,data_file.activity) for
-                peak in final_peaks])
-        logging.info("ECG Database created with time per sample="+str(time)+" and frequency="+str(frequency))
+segmentation_functions = {"t40_beat_samples": t40_beat_samples, "beat_samples": beat_samples, "beat_timewindow_samples": beat_timewindow_samples, "QRSComplex_beat_samples": QRSComplex_beat_samples , "QRSComplesAllZero_beat_samples": QRSComplesAllZero_beat_samples}
 
-
-
-class ECGQRSComplexBeatLabeledSamplesDatabase(ECGBeatLabeledSamplesDatabase):
-
-    def __init__(self, data_folder):
-        self.labeled_samples = []
-        for data_file in data_folder.data_files:
-            if data_file.activity != 3:
-                normalized_and_smoothed_ecg_sample = LabeledSamplesDatabase.process_sample(data_file.get_ecg_time_signal(),0,True,True)
-                out = ecg.ecg(signal=data_file.get_ecg_time_signal().data,sampling_rate=100,show=None)
-                peaks = out['rpeaks']
-                valleys = peakdetect.peakdetect(normalized_and_smoothed_ecg_sample.data,lookahead=5,delta=0)
-                valleys_x = [valley[0] for valley in valleys[1]]
-                for peak in peaks:
-                    peak_x = peak
-                    if valleys_x[0] < peak_x < valleys_x[-1] and len(valleys_x) > 2:
-                        begin_x = [valley for valley in valleys_x if valley < peak_x][-1]
-                        end_x = [valley for valley in valleys_x if valley > peak_x][0]
-                        if end_x-begin_x < 20:
-                            sample = LabeledSample(normalized_and_smoothed_ecg_sample.data[begin_x:end_x],data_file.user_id,data_file.activity)
-                            interpolated = LabeledSamplesDatabase.process_sample(sample,15,None,None)
-                            self.labeled_samples.append(interpolated)
-
-
-class ECGQRSComplexAllBeginZeroBeatLabeledSamplesDatabase(ECGQRSComplexBeatLabeledSamplesDatabase):
-
-    def __init__(self, data_folder):
-        database = ECGQRSComplexBeatLabeledSamplesDatabase(data_folder)
-        self.labeled_samples = []
-        for labeled_sample in database.labeled_samples:
-            origin = labeled_sample.data[0]
-            new_data = [point-origin for point in labeled_sample.data]
-            self.labeled_samples.append(LabeledSample(new_data,labeled_sample.user_id,labeled_sample.activity))
 
 
 
@@ -170,21 +134,3 @@ class ECGUtils:
 
         return points
 
-class PPGUtils:
-
-    @staticmethod
-    def plot_splits(data,lookahead,delta):
-        splits = PPGUtils.split_points(data,lookahead,delta)
-        splits_y = [data[i] for i in splits]
-        plot(data)
-        plot(splits,splits_y,'ro')
-
-    @staticmethod
-    def split_points(data,lookahead=19,delta=0):
-        points = []
-        peaks = peakdetect.peakdetect(data, lookahead=lookahead, delta=delta)
-        peaks_x = [peak[0] for peak in peaks[1]]
-        peaks_y = [peak[1] for peak in peaks[1]]
-        # If the first peak is R, we remove it, we want to start reading
-        # from the first T.
-        return peaks_x

@@ -83,3 +83,23 @@ class PPGBeatTimeLabeledSamplesDatabase(LabeledSamplesDatabase):
                 final_peaks.append(current_peak)
         return [LabeledSample(d[peak-40:peak+(limit-40)],ppg_labeled_time_signal.user_id,ppg_labeled_time_signal.activity) for
                 peak in final_peaks]
+
+
+class PPGUtils:
+
+    @staticmethod
+    def plot_splits(data,lookahead,delta):
+        splits = PPGUtils.split_points(data,lookahead,delta)
+        splits_y = [data[i] for i in splits]
+        plot(data)
+        plot(splits,splits_y,'ro')
+
+    @staticmethod
+    def split_points(data,lookahead=19,delta=0):
+        points = []
+        peaks = peakdetect.peakdetect(data, lookahead=lookahead, delta=delta)
+        peaks_x = [peak[0] for peak in peaks[1]]
+        peaks_y = [peak[1] for peak in peaks[1]]
+        # If the first peak is R, we remove it, we want to start reading
+        # from the first T.
+        return peaks_x

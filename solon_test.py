@@ -5,7 +5,7 @@ from data import source
 from data.segmentation import ecg
 
 start_time = time.time()
-data_folder = source.OriginalDataFolder("original_data")
+data_folder = source.PumpPrimingDataFolder("original_data")
 #extract interpolated beat samples
 ecg_database = ecg.ECGBeatLabeledSamplesDatabase(data_folder, 80, True)
 # your code

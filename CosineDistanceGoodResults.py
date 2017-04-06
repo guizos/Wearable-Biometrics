@@ -3,7 +3,7 @@ from matplotlib.pyplot import plot
 from classifier import distance
 from data import source
 from data.segmentation import ecg
-data_folder = source.OriginalDataFolder("../data/original")
+data_folder = source.PumpPrimingDataFolder("../data/original")
 ecg_database = ecg.ECGBeatLabeledSamplesDatabase(data_folder, 20, True)
 (train,test) = ecg_database.get_labeled_training_and_test_samples(1,'ad45363b-7632-432e-a368-215d3fb0ca10',10)
 classifier = distance.AverageDistanceClassifier(1,'cosine')

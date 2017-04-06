@@ -8,7 +8,7 @@ from sklearn import metrics
 class KMeansClassifier:
 
     def __init__(self):
-        self.user_id = ""
+        self.label = ""
         self.kmeans = KMeans(n_clusters=1)
 
     def get_parameters_string(self):
@@ -24,30 +24,23 @@ class KMeansClassifier:
         result += "--------------------------\n"
         return result
 
-    def train(self,labeled_samples):
-        self.user_id = labeled_samples[0].user_id
-        self.kmeans.fit([labeled_sample.data for labeled_sample in labeled_samples])
-        logging.info("Training finished")
+    def train(self,dataset):
+        first_label = dataset.feature_vectors[0].label
+        for feature_vector in dataset.feature_vectors:
+            if feature_vector.label != first_label:
+                print "Training set vectors should be of the same label!!!"
+                return None
+        self.label = dataset.feature_vectors[0].label
+        self.kmeans.fit([feature_vector.values for feature_vector in dataset.feature_vectors])
         return None
 
-    def test(self,labeled_samples,activity_info=None):
+    def test(self,dataset):
         result = []
         # Returns the area under the roc curve. The higher the better.
-        distances = self.kmeans.transform([labeled_sample.data for labeled_sample in labeled_samples])
+        distances = self.kmeans.transform([feature_vector.values for feature_vector in dataset.feature_vectors])
         # We have to assign the opposite labels as in our case, our values do not correspond to confidence
         # values. They correspond to distances, which work in the opposite way. The lower the distance the
         # better.
-        labels = [-1 if labeled_sample.user_id == self.user_id else 1 for labeled_sample in labeled_samples]
+        labels = [-1 if feature_vector.label == self.label else 1 for feature_vector in dataset.feature_vectors]
         roc_score = metrics.roc_auc_score(y_true=labels,y_score=distances)
-        result.append(roc_score)
-        if activity_info:
-            for i in range(4):
-                labels_activity = [-1 if labeled_sample.user_id == self.user_id else 1 for labeled_sample in labeled_samples if labeled_sample.activity==i+1]
-                distances_activity = [distances[j] for j in range(len(distances)) if labeled_samples[j].activity==i+1]
-                if len(labels_activity) > 0 and len(set(labels_activity))>1:
-                    activity_roc_score = metrics.roc_auc_score(y_true=labels_activity,y_score=distances_activity)
-                    result.append(activity_roc_score)
-                elif len(set(labels_activity))>1:
-                    result.append(0.5)
-        logging.info("Test finished")
-        return result
+        return roc_score

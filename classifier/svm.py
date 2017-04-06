@@ -29,50 +29,35 @@ class SVMClassifier:
         result += "--------------------------\n"
         return result
 
-    def train(self,labeled_samples):
-        self.user_id = labeled_samples[0].user_id
-        self.svm.fit([labeled_sample.data for labeled_sample in labeled_samples])
-        logging.info("Training finished")
+    def train(self,dataset):
+        first_label = dataset.feature_vectors[0].label
+        for feature_vector in dataset.feature_vectors:
+            if feature_vector.label != first_label:
+                print "Training set vectors should be of the same label!!!"
+                return None
+        self.user_id = dataset.feature_vectors[0].label
+        self.svm.fit([feature_vector.values for feature_vector in dataset.feature_vectors])
 
-    def test(self,labeled_samples,activity_info=None):
+    def test(self,dataset):
         # each row is a labeled_sample
-        samples = [labeled_sample.data for labeled_sample in labeled_samples]
+        samples = [feature_vector.values for feature_vector in dataset.feature_vectors]
         result = []
-        labels = [1 if labeled_sample.user_id == self.user_id else -1 for labeled_sample in labeled_samples]
+        labels = [1 if feature_vector.label == self.user_id else -1 for feature_vector in dataset.feature_vectors]
         predictions = self.svm.predict(samples)
         tp = len([1 for index in range(len(predictions)) if labels[index]==1==predictions[index]])
         tn = len([1 for index in range(len(predictions)) if labels[index]==-1==predictions[index]])
         fp = len([1 for index in range(len(predictions)) if labels[index]==-1 and predictions[index]==1])
         fn = len([1 for index in range(len(predictions)) if labels[index]==1 and predictions[index]==-1])
         result.append([tp, tn, fp, fn])
-        if activity_info:
-            for i in range(4):
-                tp_a = len([1 for index in range(len(predictions)) if labels[index]==1==predictions[index] and labeled_samples[index].activity==i+1])
-                tn_a = len([1 for index in range(len(predictions)) if labels[index]==-1==predictions[index] and labeled_samples[index].activity==i+1])
-                fp_a = len([1 for index in range(len(predictions)) if labels[index]==-1 and predictions[index]==1 and labeled_samples[index].activity==i+1])
-                fn_a = len([1 for index in range(len(predictions)) if labels[index]==1 and predictions[index]==-1 and labeled_samples[index].activity==i+1])
-                result.append([tp_a, tn_a, fp_a, fn_a])
-        logging.info("Test finished")
         return result
 
 class SVMROCClassifier(SVMClassifier):
 
-    def test(self,labeled_samples,activity_info=None):
+    def test(self,dataset):
         # each row is a labeled_sample
-        samples = [labeled_sample.data for labeled_sample in labeled_samples]
+        samples = [feature_vector.values for feature_vector in dataset.feature_vectors]
         result = []
-        labels = [1 if labeled_sample.user_id == self.user_id else -1 for labeled_sample in labeled_samples]
+        labels = [1 if feature_vector.label == self.user_id else -1 for feature_vector in dataset.feature_vectors]
         distances = self.svm.decision_function(samples)
         roc_score = metrics.roc_auc_score(y_true=labels,y_score=distances)
-        result.append(roc_score)
-        if activity_info:
-            for i in range(4):
-                labels_activity = [-1 if labeled_sample.user_id == self.user_id else 1 for labeled_sample in labeled_samples if labeled_sample.activity==i+1]
-                distances_activity = [distances[j] for j in range(len(distances)) if labeled_samples[j].activity==i+1]
-                if len(labels_activity) > 0 and len(set(labels_activity))>1:
-                    activity_roc_score =  metrics.roc_auc_score(y_true=labels_activity,y_score=distances_activity)
-                    result.append(activity_roc_score)
-                elif len(set(labels_activity))>1:
-                    result.append(0.5)
-        logging.info("Test finished")
-        return result
+        return roc_score

@@ -6,7 +6,7 @@ from data.segmentation import ecg
 from experiments import experiment
 
 #get data folder
-data_folder = source.OriginalDataFolder(sys.argv[1])
+data_folder = source.PumpPrimingDataFolder(sys.argv[1])
 #extract interpolated beat samples
 ecg_database = ecg.ECGBeatLabeledSamplesDatabase(data_folder)
 #with open('ecg_database_smothed_before_splitting.pkl','rb') as input:

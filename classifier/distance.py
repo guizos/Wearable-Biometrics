@@ -57,57 +57,51 @@ class AverageDistanceClassifier:
         else:
             return [0]
 
-    def train(self,labeled_samples):
-        self.user_id = labeled_samples[0].user_id
-        distances = self.distance([labeled_sample.data for labeled_sample in labeled_samples],
+    def train(self, dataset):
+        first_label = dataset.feature_vectors[0].label
+        for feature_vector in dataset.feature_vectors:
+            if feature_vector.label != first_label:
+                print "Training set vectors should be of the same label!!!"
+                return None
+        self.user_id = dataset.feature_vectors[0].label
+        to_measure = [feature_vector.values for feature_vector in dataset.feature_vectors]
+        distances = self.distance(numpy.array(to_measure),
                                   metric=self.distance_function)
         self.mean = numpy.mean(distances)
         self.std = numpy.std(distances)
-        self.train_samples = labeled_samples
-        logging.info("Training finished")
+        self.train_samples = dataset.feature_vectors
         return self.mean,self.std
 
-    def get_mean_distance(self, sample):
-        samples_train = [train_sample.data for train_sample in self.train_samples]
-        return numpy.mean([self.distance([sample,float_train_sample],metric=self.distance_function) for float_train_sample in samples_train])
+    def get_mean_distance(self, feature_vector):
+        samples_train = [train_sample.values for train_sample in self.train_samples]
+        return numpy.mean([self.distance([feature_vector, float_train_sample], metric=self.distance_function) for float_train_sample in samples_train])
 
-    def get_sum_distance(self,sample):
-        samples_train = [train_sample.data for train_sample in self.train_samples]
-        return numpy.sum([self.distance([sample,float_train_sample],metric=self.distance_function) for float_train_sample in samples_train])
+    def get_sum_distance(self, feature_vector):
+        samples_train = [train_sample.values for train_sample in self.train_samples]
+        return numpy.sum([self.distance([feature_vector, float_train_sample], metric=self.distance_function) for float_train_sample in samples_train])
 
-    def get_min_distance(self,sample):
-        samples_train = [train_sample.data for train_sample in self.train_samples]
-        return numpy.min([self.distance([sample, float_train_sample], metric=self.distance_function) for float_train_sample in samples_train])
+    def get_min_distance(self, feature_vector):
+        samples_train = [train_sample.values for train_sample in self.train_samples]
+        return numpy.min([self.distance([feature_vector, float_train_sample], metric=self.distance_function) for float_train_sample in samples_train])
 
-    def test(self,labeled_samples,activity_info=None):
+    def test(self,dataset):
         result = []
         # Returns the area under the roc curve. The higher the better.
         if self.kind == 'mean':
-            distances = [self.get_mean_distance(labeled_sample.data) for labeled_sample in labeled_samples]
+            distances = [self.get_mean_distance(feature_vector.values) for feature_vector in dataset.feature_vectors]
         elif self.kind == 'min':
-            distances = [self.get_min_distance(labeled_sample.data) for labeled_sample in labeled_samples]
+            distances = [self.get_min_distance(feature_vector.values) for feature_vector in dataset.feature_vectors]
         else:
-            distances = [self.get_sum_distance(labeled_sample.data) for labeled_sample in labeled_samples]
+            distances = [self.get_sum_distance(feature_vector.values) for feature_vector in dataset.feature_vectors]
         # We have to assign the opposite labels as in our case, our values do not correspond to confidence
         # values. They correspond to distances, which work in the opposite way. The lower the distance the
         # better.
-        labels = [-1 if labeled_sample.user_id == self.user_id else 1 for labeled_sample in labeled_samples]
+        labels = [-1 if feature_vector.label == self.user_id else 1 for feature_vector in dataset.feature_vectors]
         roc_score = metrics.roc_auc_score(y_true=labels,y_score=distances)
-        result.append(roc_score)
-        if activity_info:
-            for i in range(4):
-                labels_activity = [-1 if labeled_sample.user_id == self.user_id else 1 for labeled_sample in labeled_samples if labeled_sample.activity==i+1]
-                distances_activity = [distances[j] for j in range(len(distances)) if labeled_samples[j].activity==i+1]
-                if len(labels_activity) > 0 and len(set(labels_activity))>1:
-                    activity_roc_score =  metrics.roc_auc_score(y_true=labels_activity,y_score=distances_activity)
-                    result.append(activity_roc_score)
-                elif len(set(labels_activity))>1:
-                    result.append(0.5)
-        logging.info("Test finished")
-        return result
+        return roc_score
 
 
-    def get_roc(self,labeled_samples,activity_info=None,type='mean',):
+    def get_roc(self,labeled_samples,type='mean',):
         if type == 'mean':
             distances = [self.get_mean_distance(labeled_sample.data) for labeled_sample in labeled_samples]
         elif type == 'min':
